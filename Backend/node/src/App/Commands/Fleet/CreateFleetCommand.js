@@ -1,7 +1,8 @@
 class CreateFleetCommand {
     /**
-     * Crée une commande pour créer une flotte.
-     * @param {string} userId - L'identifiant de l'utilisateur propriétaire de la flotte.
+     * Defines a command to create a fleet.
+     * @param {string} userId - The unique identifier of the user who owns the fleet.
+     * @throws {Error} If the userId is not provided.
      */
     constructor(userId) {
         if (!userId) {
@@ -9,7 +10,6 @@ class CreateFleetCommand {
         }
 
         this.userId = userId;
-        this.fleetName = fleetName;
     }
 }
 
