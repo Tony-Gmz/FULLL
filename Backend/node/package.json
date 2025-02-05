@@ -10,5 +10,8 @@
   },
   "scripts": {
     "test": "cucumber-js --profile default"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7"
   }
 }
