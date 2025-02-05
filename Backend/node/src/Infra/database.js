@@ -16,8 +16,7 @@ db.serialize(() => {
     db.run(`
         CREATE TABLE IF NOT EXISTS fleet (
             fleet_id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            name TEXT NOT NULL
+            user_id TEXT NOT NULL
         )
     `);
 

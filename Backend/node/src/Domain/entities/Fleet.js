@@ -1,6 +1,7 @@
 class Fleet {
-    constructor(id) {
+    constructor(id, userId) {
         this.id = id;
+        this.userId = userId;
         this.vehicles = new Set();
     }
 
