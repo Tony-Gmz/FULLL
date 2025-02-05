@@ -12,6 +12,8 @@
     "test": "cucumber-js --profile default"
   },
   "dependencies": {
+    "class-validator": "^0.14.1",
+    "reflect-metadata": "^0.2.2",
     "sqlite3": "^5.1.7"
   }
 }

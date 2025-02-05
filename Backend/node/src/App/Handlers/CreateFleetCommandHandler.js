@@ -1,26 +1,46 @@
-const Fleet = require('../../Domain/entities/Fleet');
+require('reflect-metadata');
+const { IsString, IsArray, validateSync } = require('class-validator');
 
-class CreateFleetCommandHandler {
+class Fleet {
     /**
-     * Handles the creation of a fleet by interacting with the fleet repository.
-     * @param {Object} fleetRepository - The repository used to manage fleet data storage.
+     * Creates a new Fleet instance.
+     * @param {string} id - The unique identifier of the fleet.
+     * @param {string} userId - The unique identifier of the user who owns the fleet.
+     * @param {[]} [vehicles=[]] - An array of vehicle plate numbers associated with the fleet.
+     * @throws {Error} If validation fails.
      */
-    constructor(fleetRepository) {
-        this.fleetRepository = fleetRepository;
+    constructor(id, userId, vehicles = []) {
+        this.id = id;
+        this.userId = userId;
+        this.vehicles = new Set(vehicles);
+
+        // Validate the object properties
+        const errors = validateSync(this);
+        if (errors.length > 0) {
+            throw new Error(`Validation error: ${errors.map(err => Object.values(err.constraints).join(', ')).join('; ')}`);
+        }
     }
 
     /**
-     * Processes the CreateFleetCommand to create a new fleet.
-     * @param {Object} command - The command containing the information needed to create the fleet.
-     * @param {string} command.userId - The ID of the user who owns the fleet.
-     * @returns {string} The ID of the newly created fleet.
+     * Adds a vehicle to the fleet.
+     * @param {string} vehiclePlateNumber - The plate number of the vehicle to be added.
+     * @throws {Error} If the vehicle is already present in the fleet.
      */
-    handle(command) {
-        const fleetId = `fleet-${Date.now()}`;
-        const fleet = new Fleet(fleetId, command.userId);
-        this.fleetRepository.create(fleet);
-        return fleetId;
+    addVehicle(vehiclePlateNumber) {
+        if (this.vehicles.has(vehiclePlateNumber)) {
+            throw new Error(`Vehicle ${vehiclePlateNumber} already exists in the fleet`);
+        }
+        this.vehicles.add(vehiclePlateNumber);
+    }
+
+    /**
+     * Checks if a vehicle is present in the fleet.
+     * @param {string} vehiclePlateNumber - The plate number of the vehicle to check.
+     * @returns {boolean} True if the vehicle is present, otherwise false.
+     */
+    hasVehicle(vehiclePlateNumber) {
+        return this.vehicles.has(vehiclePlateNumber);
     }
 }
 
-module.exports = { CreateFleetCommandHandler };
+module.exports = Fleet;
