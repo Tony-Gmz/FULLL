@@ -36,7 +36,7 @@ class RegisterVehicleCommandHandler {
             throw new Error(`Vehicle ${command.vehiclePlateNumber} is already registered in the fleet`);
         }
 
-        const id = `vehicle_fleet_${date.now()}`;
+        const id = `vehicle_fleet_${Date.now()}`;
         this.fleetRepository.addVehicle(id, fleet.id, vehicle.id);
     }
 }
