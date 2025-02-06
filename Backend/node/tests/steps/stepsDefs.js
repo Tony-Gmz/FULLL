@@ -1,126 +1,139 @@
 const { Given, When, Then } = require("@cucumber/cucumber");
 const assert = require("assert");
-const Fleet = require("../../src/Domain/entities/Fleet");
-const Vehicle = require("../../src/Domain/entities/Vehicle");
-const VehicleLocation = require("../../src/Domain/entities/VehicleLocation");
+
+const FleetRepository = require("../../src/Infra/repositories/FleetRepository");
+const VehicleRepository = require("../../src/Infra/repositories/VehicleRepository");
+
+const { RegisterVehicleCommandHandler } = require("../../src/App/Handlers/Vehicle/RegisterVehicleCommandHandler");
+const { CreateFleetCommandHandler } = require("../../src/App/Handlers/Fleet/CreateFleetCommandHandler");
+const { CreateVehicleCommandHandler } = require("../../src/App/Handlers/Vehicle/CreateVehicleCommandHandler");
+
+const RegisterVehicleCommand = require("../../src/App/Commands/Vehicle/RegisterVehicleCommand");
+const CreateFleetCommand = require("../../src/App/Commands/Fleet/CreateFleetCommand");
+const CreateVehicleCommand = require("../../src/App/Commands/Vehicle/CreateVehicleCommand");
+
+const VehicleQueries = require("../../src/App/Queries/Vehicle/VehicleQueries");
+const FleetQueries = require("../../src/App/Queries/Fleet/FleetQueries");
 
 // ----------------------------------------------------------------------------- //
-// Variables globales de test
+// Global variables for the test environment
+let fleetRepository;
+let vehicleRepository;
+let fleetQueries;
+let vehicleQueries;
+
 let fleet;
 let otherFleet;
 let vehicle;
 let error;
-let location;
-let vehicleLocationHistory = [];
+
+let registerVehicleHandler;
+let createFleetHandler;
+let createVehicleHandler;
 
 // ----------------------------------------------------------------------------- //
-// Common Steps
+// Configuration for the test environment
 
-Given("my fleet", function () {
-    fleet = new Fleet("FLEET123");
+Given("my fleet", async function () {
+    fleetRepository = new FleetRepository();
+    vehicleRepository = new VehicleRepository();
+
+    fleetQueries = new FleetQueries(fleetRepository);
+    vehicleQueries = new VehicleQueries(vehicleRepository);
+
+    registerVehicleHandler = new RegisterVehicleCommandHandler(
+        fleetRepository,
+        vehicleRepository,
+        fleetQueries,
+        vehicleQueries
+    );
+
+    createFleetHandler = new CreateFleetCommandHandler(fleetRepository);
+    createVehicleHandler = new CreateVehicleCommandHandler(vehicleRepository, vehicleQueries);
+
+    const createFleetCommand = new CreateFleetCommand("USER1");
+    const fleetId = await createFleetHandler.handle(createFleetCommand);
+
+    fleet = await fleetRepository.findById(fleetId);
 });
 
-Given("a vehicle", function () {
-    vehicle = new Vehicle("ABC123");
+Given("a vehicle", async function () {
+    // Create a vehicle if it doesn't exist
+    vehicle = await vehicleRepository.findByPlateNumber("ABC123");
+    if (!vehicle) {
+        const createVehicleCommand = new CreateVehicleCommand("ABC123", "Toyota", "Corolla");
+        await createVehicleHandler.handle(createVehicleCommand);
+
+        vehicle = await vehicleRepository.findByPlateNumber("ABC123");
+    }
 });
 
-Given("I have registered this vehicle into my fleet", function () {
-    fleet.addVehicle(vehicle.plateNumber);
-});
-
-Given("a location", function () {
-    location = { latitude: 48.8566, longitude: 2.3522, altitude: 35 }; // Exemple : coordonnées de Paris
+Given("I have registered this vehicle into my fleet", async function () {
+    const command = new RegisterVehicleCommand(fleet.id, vehicle.plate_number);
+    await registerVehicleHandler.handle(command);
 });
 
 // ----------------------------------------------------------------------------- //
 // Scénario 1: I can register a vehicle
 
-When("I register this vehicle into my fleet", function () {
+When("I register this vehicle into my fleet", async function () {
     try {
-        fleet.addVehicle(vehicle.plateNumber);
+        const command = new RegisterVehicleCommand(fleet.id, vehicle.plate_number);
+        await registerVehicleHandler.handle(command);
     } catch (e) {
         error = e;
     }
 });
 
-Then("this vehicle should be successfully registered into my vehicle fleet", function () {
-    assert.strictEqual(fleet.hasVehicle(vehicle.plateNumber), true);
+Then("this vehicle should be successfully registered into my vehicle fleet", async function () {
+    const fleetHasVehicle = await fleetQueries.fleetHasVehicle(fleet.id, vehicle.id);
+    assert.strictEqual(fleetHasVehicle, true);
 });
 
 // ----------------------------------------------------------------------------- //
 // Scénario 2: I can't register same vehicle twice
 
-When("I try to register this vehicle into my fleet again", function () {
+When("I try to register this vehicle into my fleet again", async function () {
     try {
-        fleet.addVehicle(vehicle.plateNumber);
+        const command = new RegisterVehicleCommand(fleet.id, vehicle.plate_number);
+        await registerVehicleHandler.handle(command);
     } catch (e) {
         error = e;
     }
 });
 
 Then("I should be informed that this vehicle is already in my fleet", function () {
-    assert.strictEqual(error.message, `Vehicle ${vehicle.plateNumber} already exists in the fleet`);
+    assert.strictEqual(error.message, `Vehicle ${vehicle.plate_number} is already registered in the fleet`);
 });
 
 // ----------------------------------------------------------------------------- //
 // Scénario 3: Same vehicle can belong to more than one fleet
 
-Given("the fleet of another user exists", function () {
-    otherFleet = new Fleet("FLEET456");
+Given("the fleet of another user exists", async function () {
+    const createFleetCommand = new CreateFleetCommand("USER2");
+    const otherFleetId = await createFleetHandler.handle(createFleetCommand);
+
+    otherFleet = await fleetRepository.findById(otherFleetId);
 });
 
-Given("this vehicle has already been registered in the other user's fleet", function () {
-    otherFleet.addVehicle(vehicle.plateNumber);
+Given("this vehicle has already been registered in the other user's fleet", async function () {
+    const command = new RegisterVehicleCommand(otherFleet.id, vehicle.plate_number);
+    await registerVehicleHandler.handle(command);
 });
 
-When("I register this vehicle into my fleet as well", function () {
+When("I register this vehicle into my fleet as well", async function () {
     try {
-        fleet.addVehicle(vehicle.plateNumber);
+        const command = new RegisterVehicleCommand(fleet.id, vehicle.plate_number);
+        await registerVehicleHandler.handle(command);
     } catch (e) {
         error = e;
     }
 });
 
-Then("this vehicle should also be part of my fleet", function () {
-    assert.strictEqual(fleet.hasVehicle(vehicle.plateNumber), true);
-    assert.strictEqual(otherFleet.hasVehicle(vehicle.plateNumber), true);
-});
+Then("this vehicle should also be part of my fleet", async function () {
+    const fleetHasVehicle = await fleetQueries.fleetHasVehicle(fleet.id, vehicle.id);
+    const otherFleetHasVehicle = await fleetQueries.fleetHasVehicle(otherFleet.id, vehicle.id);
 
-// ----------------------------------------------------------------------------- //
-// Scénario 4: Successfully park a vehicle
-
-When("I park my vehicle at this location", function () {
-    const vehicleLocation = new VehicleLocation("LOCATION1", vehicle.plateNumber, location.latitude, location.longitude, location.altitude);
-    vehicleLocationHistory.push(vehicleLocation);
-});
-
-Then("the known location of my vehicle should verify this location", function () {
-    const latestLocation = vehicleLocationHistory.find(loc => loc.vehiclePlateNumber === vehicle.plateNumber);
-    assert.strictEqual(latestLocation.latitude, location.latitude);
-    assert.strictEqual(latestLocation.longitude, location.longitude);
-    assert.strictEqual(latestLocation.altitude, location.altitude);
-});
-
-// ----------------------------------------------------------------------------- //
-// Scénario 5: Can't localize my vehicle to the same location two times in a row
-
-Given("my vehicle has been parked into this location", function () {
-    const vehicleLocation = new VehicleLocation("LOCATION1", vehicle.plateNumber, location.latitude, location.longitude, location.altitude);
-    vehicleLocationHistory.push(vehicleLocation);
-});
-
-When("I try to park my vehicle at this location", function () {
-    const latestLocation = vehicleLocationHistory.find(loc => loc.vehiclePlateNumber === vehicle.plateNumber);
-    if (
-        latestLocation &&
-        latestLocation.latitude === location.latitude &&
-        latestLocation.longitude === location.longitude &&
-        latestLocation.altitude === location.altitude
-    ) {
-        error = new Error("Vehicle is already parked at this location");
-    }
-});
-
-Then("I should be informed that my vehicle is already parked at this location", function () {
-    assert.strictEqual(error.message, "Vehicle is already parked at this location");
+    assert.strictEqual(fleetHasVehicle, true);
+    assert.strictEqual(otherFleetHasVehicle, true);
 });
