@@ -47,13 +47,15 @@ fulll/
 
 ---
 ## **⏱️ Development Time** 
-The total time spent on developing and testing the solution was approximately 8 hours. This includes:
+The total time spent on developing and testing the solution was approximately **8 hours**.
 
-Reading Documentation
-Designing the architecture.
-Writing BDD tests.
-Implementing core features.
-Debugging and refining the code.
+This includes:
+
+- Reading Documentation
+- Designing the architecture.
+- Writing BDD tests.
+- Implementing core features.
+- Debugging and refining the code.
 
 ---
 
